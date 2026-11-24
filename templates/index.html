@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat'bruti : Aristote-sur-Seine</title>
+    <style>
+        body { font-family: 'Georgia', serif; background-color: #f4ece1; display: flex; justify-content: center; padding: 20px; }
+        #chat-container { width: 100%; max-width: 600px; background: white; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 80vh; overflow: hidden; }
+        #header { background: #2c3e50; color: white; padding: 15px; text-align: center; font-size: 1.2em; font-style: italic; }
+        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .message { padding: 10px 15px; border-radius: 15px; max-width: 80%; line-height: 1.4; }
+        .user-msg { background: #3498db; color: white; align-self: flex-end; }
+        .bot-msg { background: #ecf0f1; color: #2c3e50; align-self: flex-start; border-left: 4px solid #e74c3c; }
+        .loading { font-style: italic; color: #7f8c8d; align-self: flex-start; display: none; }
+        #input-area { display: flex; padding: 15px; border-top: 1px solid #ddd; background: #fafafa; }
+        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-size: 1em; outline: none; }
+        button { padding: 10px 20px; margin-left: 10px; background: #e74c3c; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #c0392b; }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="header">🎭 Aristote-sur-Seine (Chat'bruti)</div>
+    
+    <div id="chat-box">
+        <div class="message bot-msg">Salutations, entité mortelle. Quelle question triviale viens-tu soumettre à mon immense sagesse aujourd'hui ?</div>
+    </div>
+    <div id="loading" class="loading">Aristote médite...</div>
+    
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Posez une question technique ou sérieuse..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()">Envoyer</button>
+    </div>
+</div>
+
+<script>
+    // Le tableau qui sert de mémoire à court terme
+    let conversationHistory = [];
+
+    async function sendMessage() {
+        const inputField = document.getElementById("user-input");
+        const messageText = inputField.value.trim();
+        if (!messageText) return;
+
+        // 1. Afficher le message utilisateur
+        appendMessage(messageText, "user-msg");
+        inputField.value = "";
+        
+        // 2. Ajouter à la mémoire
+        conversationHistory.push({ role: "user", content: messageText });
+
+        // 3. Afficher le chargement
+        document.getElementById("loading").style.display = "block";
+
+        try {
+            // 4. Envoyer tout l'historique au backend
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: conversationHistory })
+            });
+            
+            const data = await response.json();
+            
+            // 5. Afficher la réponse du bot et l'ajouter à la mémoire
+            document.getElementById("loading").style.display = "none";
+            appendMessage(data.reply, "bot-msg");
+            conversationHistory.push({ role: "assistant", content: data.reply });
+
+        } catch (error) {
+            document.getElementById("loading").style.display = "none";
+            appendMessage("Erreur de connexion au cosmos (Serveur indisponible).", "bot-msg");
+        }
+    }
+
+    function appendMessage(text, className) {
+        const chatBox = document.getElementById("chat-box");
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `message ${className}`;
+        msgDiv.textContent = text;
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight; // Scroll vers le bas
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === "Enter") sendMessage();
+    }
+</script>
+
+</body>
+</html>
