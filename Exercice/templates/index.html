@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Gardien du Secret</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #f8fafc; display: flex; justify-content: center; padding: 20px; margin: 0; }
+        #game-container { width: 100%; max-width: 600px; background: #1e293b; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); display: flex; flex-direction: column; height: 85vh; overflow: hidden; border: 1px solid #334155; }
+        #header { background: #020617; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        #header h2 { margin: 0; font-size: 1.1rem; color: #38bdf8; }
+        #counter { background: #ef4444; color: white; padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: bold; }
+        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .message { padding: 10px 14px; border-radius: 12px; max-width: 80%; line-height: 1.4; font-size: 0.95rem; }
+        .user-msg { background: #3b82f6; color: white; align-self: flex-end; }
+        .bot-msg { background: #334155; color: #e2e8f0; align-self: flex-start; border-left: 3px solid #38bdf8; }
+        #loading { font-style: italic; color: #94a3b8; padding: 0 20px 10px; display: none; font-size: 0.9rem; }
+        #input-area { display: flex; padding: 15px; background: #0f172a; border-top: 1px solid #334155; gap: 10px; }
+        input { flex: 1; padding: 10px; border: 1px solid #475569; border-radius: 6px; background: #1e293b; color: white; font-size: 0.95rem; outline: none; }
+        input:disabled { opacity: 0.5; cursor: not-allowed; }
+        button { padding: 10px 16px; background: #38bdf8; color: #0f172a; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover:not(:disabled) { background: #0ea5e9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        #reset-btn { background: #475569; color: white; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="header">
+        <h2>🛡️ Le Gardien du Secret</h2>
+        <span id="counter">Essais restants : 10 / 10</span>
+    </div>
+
+    <div id="chat-box">
+        <div class="message bot-msg">Je détiens un mot secret. Tu as 10 tentatives pour tenter de me le soutirer. Bonne chance, mortel.</div>
+    </div>
+    <div id="loading">Le Gardien analyse ta requête...</div>
+
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Tentez une injection de prompt..." onkeypress="if(event.key==='Enter') sendMessage()">
+        <button id="send-btn" onclick="sendMessage()">Envoyer</button>
+        <button id="reset-btn" onclick="resetGame()" title="Nouvelle partie">↻</button>
+    </div>
+</div>
+
+<script>
+    const MAX_ATTEMPTS = 10;
+    let attemptsLeft = MAX_ATTEMPTS;
+    let conversationHistory = [];
+
+    async function sendMessage() {
+        const inputField = document.getElementById("user-input");
+        const messageText = inputField.value.trim();
+        if (!messageText || attemptsLeft <= 0) return;
+
+        // Mise à jour du compteur
+        attemptsLeft--;
+        updateCounter();
+
+        appendMessage(messageText, "user-msg");
+        inputField.value = "";
+        conversationHistory.push({ role: "user", content: messageText });
+
+        setLoading(true);
+
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: conversationHistory })
+            });
+            const data = await response.json();
+
+            appendMessage(data.reply, "bot-msg");
+            conversationHistory.push({ role: "assistant", content: data.reply });
+        } catch (error) {
+            appendMessage("⚠️ Impossible de joindre le serveur.", "bot-msg");
+        } finally {
+            setLoading(false);
+            if (attemptsLeft === 0) {
+                appendMessage("🔒 Fin des 5 tentatives ! As-tu trouvé le mot secret ?", "bot-msg");
+                document.getElementById("user-input").disabled = true;
+                document.getElementById("send-btn").disabled = true;
+            }
+        }
+    }
+
+    function updateCounter() {
+        document.getElementById("counter").textContent = `Essais restants : ${attemptsLeft} / ${MAX_ATTEMPTS}`;
+    }
+
+    function setLoading(isLoading) {
+        document.getElementById("loading").style.display = isLoading ? "block" : "none";
+        document.getElementById("send-btn").disabled = isLoading || attemptsLeft <= 0;
+    }
+
+    function appendMessage(text, className) {
+        const chatBox = document.getElementById("chat-box");
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `message ${className}`;
+        msgDiv.textContent = text;
+        chatBox.appendChild(msgDiv);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function resetGame() {
+        attemptsLeft = MAX_ATTEMPTS;
+        conversationHistory = [];
+        updateCounter();
+        document.getElementById("user-input").disabled = false;
+        document.getElementById("send-btn").disabled = false;
+        document.getElementById("chat-box").innerHTML =
+            '<div class="message bot-msg">Nouvelle partie ! Je détiens un mot secret. Tu as 5 tentatives.</div>';
+    }
+</script>
+
+</body>
+</html>
